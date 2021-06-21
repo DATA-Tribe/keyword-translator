@@ -127,3 +127,15 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# AWS Settings
+settings.py
+
+# IDE files
+.DS_Store
+.idea/*
+.idea
+*.idea
+
+# Ignore all CSV file
+*.csv
