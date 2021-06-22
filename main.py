@@ -15,8 +15,7 @@ print(translate.translate_text(Text="Buna dimineata", SourceLanguageCode="RO", T
 
 
 # Declaring the input file path
-# input_file = pd.read_csv('result.csv', index_col=0)
-input_file = open("result.csv", 'r', newline='\n')
+input_file = open("new_merged_file.csv", 'r', newline='\n')
 csv_reader = reader(input_file)
 next(csv_reader, None)
 
@@ -37,7 +36,7 @@ allowed_languages = {
     "DE": ["de"],
     "IN": ["en"],
     "IE": ["en"],
-    "SW": ["en", "fr", "de", "it"],
+    "CH": ["de", "fr", "it"],
 }
 
 
@@ -48,13 +47,10 @@ def main():
         """
     # Searching for keywords in input file
     for row in csv_reader:
-        source_language = row[5]
-        keyword = row[2]
-        country_code = row[1]
+        keyword = row[1]
+        country_code = row[14]
         if country_code in allowed_languages:
-
-            if source_language not in allowed_languages[country_code]:
-                source_language = allowed_languages[country_code][0]
+            source_language = allowed_languages[country_code][0]
 
             print(row)
             print(f"Source Language: {source_language}")
