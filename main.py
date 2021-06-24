@@ -11,7 +11,7 @@ translate = boto3.client(
 )
 
 # Translate API
-print(translate.translate_text(Text="Buna dimineata", SourceLanguageCode="RO", TargetLanguageCode="EN"))
+print(translate.translate_text(Text="Online-Casino Österreich", SourceLanguageCode="de",TargetLanguageCode="EN"))
 
 
 # Declaring the input file path
@@ -23,7 +23,7 @@ next(csv_reader, None)
 allowed_languages = {
     "GB": ["en"],
     "US": ["en", "es", "fr"],
-    "CA": ["en", "fr"],
+    "CA": ["fr", "en"],
     "NL": ["nl", "en"],
     "NZ": ["en"],
     "ZA": ["en"],
@@ -55,11 +55,20 @@ def main():
             if country_code in allowed_languages:
                 source_language = allowed_languages[country_code][0]
 
-                print(row)
-                print(f"Source Language: {source_language}")
-                print(f"Keyword: {keyword}")
-                result = translate.translate_text(Text=keyword, SourceLanguageCode=source_language, TargetLanguageCode="EN")
+                # print(row)
+                # print(f"Source Language: {source_language}")
+                # print(f"Keyword: {keyword}")
+                result = translate.translate_text(Text=keyword,
+                                                  SourceLanguageCode=source_language,
+                                                  TargetLanguageCode="EN")
                 print(f'Translated text: {result["TranslatedText"]}')
+
+                if keyword == result["TranslatedText"]:
+                    source_language = "en"
+
+                    print(row)
+                    print(f"Source Language: {source_language}")
+                    print(f"Keyword: {keyword}")
 
                 # Using the writer, we are writing the new 3 columns to the file
                 new_row = []
