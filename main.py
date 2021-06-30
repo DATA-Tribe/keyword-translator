@@ -1,3 +1,4 @@
+import json
 import csv
 import boto3
 from csv import reader
@@ -10,8 +11,22 @@ translate = boto3.client(
     region_name='eu-west-1'
 )
 
+
+comprehend = boto3.client(
+    service_name='comprehend',
+    aws_access_key_id=settings.AWS_SERVER_PUBLIC_KEY,
+    aws_secret_access_key=settings.AWS_SERVER_SECRET_KEY,
+    region_name='eu-west-1')
+
+
+# Detect language
+sentence = "xetra öffnungszeiten"
+comprehend_result = json.loads(json.dumps(comprehend.detect_dominant_language(Text=sentence), sort_keys=True, indent=4))
+detected_lang = comprehend_result["Languages"][0]["LanguageCode"]
+print(detected_lang)
+
 # Translate API
-print(translate.translate_text(Text="Online-Casino Österreich", SourceLanguageCode="de",TargetLanguageCode="EN"))
+print(translate.translate_text(Text=sentence, SourceLanguageCode=detected_lang, TargetLanguageCode="EN"))
 
 
 # Declaring the input file path
@@ -52,28 +67,32 @@ def main():
             country_code = row[14]
             volume = row[5]
 
-            if country_code in allowed_languages:
-                source_language = allowed_languages[country_code][0]
+            comprehend_result = json.loads(
+                json.dumps(comprehend.detect_dominant_language(Text=keyword), sort_keys=True, indent=4))
+            detected_language = comprehend_result["Languages"][0]["LanguageCode"]
+
+            if detected_language in allowed_languages[country_code][0]:
 
                 # print(row)
                 # print(f"Source Language: {source_language}")
                 # print(f"Keyword: {keyword}")
                 result = translate.translate_text(Text=keyword,
-                                                  SourceLanguageCode=source_language,
+                                                  SourceLanguageCode=detected_language,
                                                   TargetLanguageCode="EN")
+                print(f'Keyword: {keyword}')
+                print(f'Detected language: {detected_language}')
                 print(f'Translated text: {result["TranslatedText"]}')
 
                 if keyword == result["TranslatedText"]:
-                    source_language = "en"
-
+                    detected_language = "en"
                     print(row)
-                    print(f"Source Language: {source_language}")
+                    print(f"Source Language: {detected_language}")
                     print(f"Keyword: {keyword}")
 
                 # Using the writer, we are writing the new 3 columns to the file
                 new_row = []
                 new_row.insert(0, country_code)
-                new_row.insert(1, source_language)
+                new_row.insert(1, detected_language)
                 new_row.insert(2, keyword)
                 new_row.insert(3, result["TranslatedText"])
                 new_row.insert(4, volume)
