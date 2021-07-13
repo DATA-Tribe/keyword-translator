@@ -19,15 +19,14 @@ comprehend = boto3.client(
     region_name='eu-west-1')
 
 
-# Detect language
+# Detect language test
 sentence = "xetra öffnungszeiten"
 comprehend_result = json.loads(json.dumps(comprehend.detect_dominant_language(Text=sentence), sort_keys=True, indent=4))
 detected_lang = comprehend_result["Languages"][0]["LanguageCode"]
 print(detected_lang)
 
-# Translate API
+# Translate API test
 print(translate.translate_text(Text=sentence, SourceLanguageCode=detected_lang, TargetLanguageCode="EN"))
-
 
 # Declaring the input file path
 input_file = open("new_merged_file.csv", 'r', newline='\n')
