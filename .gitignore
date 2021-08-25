@@ -139,3 +139,6 @@ settings.py
 
 # Ignore all CSV file
 *.csv
+
+# Ignore all Excel file
+*.xlsx
