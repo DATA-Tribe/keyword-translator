@@ -1,8 +1,14 @@
 import json
-import csv
+import operator
 import boto3
 from csv import reader
+import snowflake.connector
+
 import settings
+
+
+region = 'eu-west-1'
+sm = boto3.client('secretsmanager', region)
 
 translate = boto3.client(
     'translate',
@@ -20,7 +26,7 @@ comprehend = boto3.client(
 
 
 # Detect language test
-sentence = "xetra öffnungszeiten"
+sentence = "drück"
 comprehend_result = json.loads(json.dumps(comprehend.detect_dominant_language(Text=sentence), sort_keys=True, indent=4))
 detected_lang = comprehend_result["Languages"][0]["LanguageCode"]
 print(detected_lang)
@@ -61,22 +67,42 @@ allowed_languages = {
 
 def main():
     """
-            Taking a  keyword found in input_file, use the translator object to translate the keyword
-            which will be written in a new file
-        """
+        Taking a  keyword found in input_file, use the translator object to translate the keyword
+        which will be written in a new file
+    """
 
-    # Declaring the input file path
-    # encoding='cp1252'
-    with open("missingkws3_utf8.csv", 'r', newline='\n') as input_file:
-        csv_reader = reader(input_file)
-        next(csv_reader, None)
-        count = 1
+    sql_extract_translated_keywords = """SELECT DISTINCT 
+      KEYWORD,
+      COUNTRY_CODE,
+      DETECTED_SOURCE_LANGUAGE,
+      VOLUME
 
-        # Defining the output file, the output's file headers and the writer we'll use to create the file
-        with open("missingkw_translated_text03.csv", "w", newline='\n') as output_file:
-            headers = ["Country Code", "Detected Source Language", "Keyword", "Translated Keyword", "Volume"]
-            writer = csv.writer(output_file, delimiter=',')
-            writer.writerow(headers)
+    FROM prd_dwh.ods.translated_keywords_master"""
+
+    with snowflake.connector.connect(
+            user=settings.SNOWFLAKE_USER,
+            role=settings.SNOWFLAKE_ROLE,
+            password=settings.SNOWFLAKE_PASSWORD,
+            account=settings.SNOWFLAKE_ACCOUNT,
+            warehouse=settings.SNOWFLAKE_WAREHOUSE,
+    ) as conn:
+        cs = conn.cursor()
+        result = cs.execute(sql_extract_translated_keywords).fetchall()
+        translated_keywords = list(map(operator.itemgetter(0), result))
+        print(f"translated keywords: {translated_keywords}")
+        print(f"Type: {type(translated_keywords)}")
+
+        # Declaring the input file path
+        # encoding='cp1252'
+        with open("august_stiched.csv", 'r', newline='\n') as input_file:
+            csv_reader = reader(input_file)
+            next(csv_reader, None)
+            count = 1
+
+            # Writing new keywords back to snowflake database for all values not already translated
+            headers = [
+                "KEYWORD", "COUNTRY_CODE", "DETECTED_SOURCE_LANGUAGE", "TRANSLATED_KEYWORD", "VOLUME", "DATE_TIME_ADDED"
+            ]
 
             # Searching for keywords in input file
             for row in csv_reader:
@@ -87,43 +113,44 @@ def main():
                 print(f"Country Code: {country_code}")
                 print(f"Row Count: {count}")
 
-                # Api call to detect language
-                comprehend_result = json.loads(
-                    json.dumps(comprehend.detect_dominant_language(Text=keyword), sort_keys=True, indent=4))
-                detected_language = comprehend_result["Languages"][0]["LanguageCode"]
-                print(f"Detected Language: {detected_language}")
+                if keyword not in translated_keywords:
+                    # Api call to detect language
+                    comprehend_result = json.loads(
+                        json.dumps(comprehend.detect_dominant_language(Text=keyword), sort_keys=True, indent=4))
+                    detected_language = comprehend_result["Languages"][0]["LanguageCode"]
+                    print(f"Detected Language: {detected_language}")
 
-                if detected_language not in allowed_languages[country_code]:
-                    detected_language = "en"
-                    print("Forcing detected language to EN")
+                    if detected_language not in allowed_languages[country_code]:
+                        detected_language = "en"
+                        print("Forcing detected language to EN")
 
-                result = translate.translate_text(
-                    Text=keyword,
-                    SourceLanguageCode=detected_language,
-                    TargetLanguageCode="EN"
-                )
+                    result = translate.translate_text(
+                        Text=keyword,
+                        SourceLanguageCode=detected_language,
+                        TargetLanguageCode="EN"
+                    )
 
-                print(f'Keyword: {keyword}')
-                print(f'Detected language: {detected_language}')
-                print(f'Translated text: {result["TranslatedText"]}')
+                    print(f'Translated Keyword: {keyword}')
+                    print(f'Detected language: {detected_language}')
+                    print(f'Translated text: {result["TranslatedText"]}')
 
-                if keyword == result["TranslatedText"]:
-                    detected_language = "en"
-                    print(row)
-                    print(f"Source Language: {detected_language}")
-                    print(f"Keyword: {keyword}")
+                    if keyword == result["TranslatedText"]:
+                        detected_language = "en"
+                        print(row)
+                        print(f"Source Language: {detected_language}")
+                        print(f"Translated Keyword: {keyword}")
 
-                # Using the writer, we are writing the new 3 columns to the file
-                new_row = []
-                new_row.insert(0, country_code)
-                new_row.insert(1, detected_language)
-                new_row.insert(2, keyword)
-                new_row.insert(3, result["TranslatedText"])
-                new_row.insert(4, volume)
-                writer.writerow(new_row)
+                    # Writing back into snowflake table:
+                    sql_insert_keywords = ("insert into prd_dwh.ods.translated_keywords_master"
+                        "(KEYWORD, COUNTRY_CODE, DETECTED_SOURCE_LANGUAGE, TRANSLATED_KEYWORD, VOLUME)"
+                        " values (%s, %s, %s, %s, %s)")
 
-                count += 1
+                    values = (keyword, country_code, detected_language, result["TranslatedText"], volume)
+                    cs.execute(sql_insert_keywords, values)
+                    translated_keywords.append(values)
+                    print(f"Inserted into db: {values}")
 
+                    count += 1
 
 
 if __name__ == '__main__':
