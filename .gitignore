@@ -137,8 +137,9 @@ settings.py
 .idea
 *.idea
 
-# Ignore all CSV file
+# Ignore all CSV files and Excel files
 *.csv
-
-# Ignore all Excel file
+*.bak
 *.xlsx
+*.xls
+
