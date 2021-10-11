@@ -83,7 +83,7 @@ def load_existing_keywords():
           DETECTED_SOURCE_LANGUAGE,
           VOLUME
 
-        FROM prd_dwh.sandbox.translated_keywords_master_copy"""
+        FROM prd_dwh.sandbox.translated_keywords_master"""
 
     result = connect_to_db().execute(sql_extract_translated_keywords).fetchall()
     translated_keywords = list(map(operator.itemgetter(0, 1), result))
@@ -172,7 +172,7 @@ def insert_into_db():
         for i in range(0, len(keywords_list), 16000):
             # Writing back into snowflake table:
             keywords_chunk = keywords_list[i:i + 16000]
-            sql_insert_keywords = ("insert into prd_dwh.sandbox.translated_keywords_master_copy"
+            sql_insert_keywords = ("insert into prd_dwh.sandbox.translated_keywords_master"
                                    "(KEYWORD, DETECTED_SOURCE_LANGUAGE, COUNTRY_CODE, TRANSLATED_KEYWORD, VOLUME)"
                                    " values (%s, %s, %s, %s, %s)")
 
